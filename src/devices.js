@@ -1,9 +1,8 @@
-const { OnlineStatus, Namespace } = require('./model');
+import { OnlineStatus, Namespace } from './model';
 
 /**@typedef {import('./manager').MerossManager} MerossManager */
 /**@typedef {import('./interfaces').HTTPDeviceInfo} HTTPDeviceInfo */
 /**@typedef {import('./interfaces').ChannelInfo} ChannelInfo */
-/**@typedef {import('./model').Namespace} Namespace */
 
 /**
  * A `BaseDevice` is a generic representation of a Meross device.
@@ -11,7 +10,7 @@ const { OnlineStatus, Namespace } = require('./model');
  * name, type (i.e. device specific model), firmware/hardware version, a Meross internal
  * identifier, a library assigned internal identifier.
  */
-exports.BaseDevice = class BaseDevice {
+export class BaseDevice {
   /**
    * @param {string} deviceUUID
    * @param {MerossManager} manager
@@ -151,15 +150,15 @@ exports.BaseDevice = class BaseDevice {
     if (res.length == 1) return res[0];
     throw new Error(`Could not find channel by name = ${name}`);
   }
-};
+}
 
-exports.HubDevice = class extends exports.BaseDevice {
+export class HubDevice extends BaseDevice {
   // TODO: provide meaningful comment here describing what this class does
   //  Discovery?? Bind/unbind?? Online?? -@albertogeniola
   constructor(deviceUUID, manager, config) {
     super(deviceUUID, manager, config);
 
-    /** @type {{ [id: string]: exports.GenericSubDevice }} */
+    /** @type {{ [id: string]: GenericSubDevice }} */
     this.subDevices = {};
   }
 
@@ -167,7 +166,7 @@ exports.HubDevice = class extends exports.BaseDevice {
     return Object.values(this.subDevices);
   }
 
-  registerSubDevice(/** @type {exports.GenericSubDevice} */ subDevice) {
+  registerSubDevice(/** @type {GenericSubDevice} */ subDevice) {
     // If the device is already registered, skip it
     if (subDevice.subDeviceID in this.subDevices) {
       console.error(
@@ -178,9 +177,9 @@ exports.HubDevice = class extends exports.BaseDevice {
 
     this.subDevices[subDevice.subDeviceID] = subDevice;
   }
-};
+}
 
-exports.GenericSubDevice = class extends exports.BaseDevice {
+export class GenericSubDevice extends BaseDevice {
   /**
    * @param {string} hubDeviceUUID
    * @param {string} subDeviceID
@@ -201,8 +200,8 @@ exports.GenericSubDevice = class extends exports.BaseDevice {
     const hub = manager.findDevices({ deviceUUIDs: hubDeviceUUID });
     if (hub.length < 1) throw new Error('Specified hub device is not present');
 
-    /** @type {exports.HubDevice} */
-    this.hub = /** @type {exports.HubDevice} */ (hub[0]);
+    /** @type {HubDevice} */
+    this.hub = /** @type {HubDevice} */ (hub[0]);
   }
 
   async executeCommand(_method, _namespace, _payload, _timeout = 5) {
@@ -262,4 +261,4 @@ exports.GenericSubDevice = class extends exports.BaseDevice {
 
     return this.online;
   }
-};
+}

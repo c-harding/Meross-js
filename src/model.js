@@ -1,24 +1,24 @@
-exports.AuthenticatedPostException = class extends Error {};
-exports.TokenExpiredException = class extends Error {};
-exports.TooManyRequestsException = class extends Error {};
-exports.TooManyTokensException = class extends Error {};
-exports.CommandTimeout = class extends Error {};
+export class AuthenticatedPostException extends Error {}
+export class TokenExpiredException extends Error {}
+export class TooManyRequestsException extends Error {}
+export class TooManyTokensException extends Error {}
+export class CommandTimeout extends Error {}
 
-exports.ErrorCodes = {
+export const ErrorCodes = {
   CODE_NO_ERROR: 0,
   CODE_TOKEN_EXPIRED: 1019,
   CODE_TOO_MANY_REQUESTS: 1300,
   CODE_TOO_MANY_TOKENS: 1301,
 };
 
-exports.OnlineStatus = {
+export const OnlineStatus = {
   ONLINE: 1,
   OFFLINE: 2,
   UNKNOWN: -1,
 };
 
 /** @enum {string} */
-exports.Namespace = {
+export const Namespace = {
   // Common abilities
   SYSTEM_ALL: 'Appliance.System.All',
   SYSTEM_ABILITY: 'Appliance.System.Ability',

@@ -1,4 +1,4 @@
-import { Namespace } from './devices';
+import { Namespace } from './model';
 
 export interface MerossCloudCreds {
   token: string;
@@ -27,7 +27,7 @@ export interface HTTPDeviceInfo {
   reserved_domain: string;
 }
 
-export interface HttpSubdeviceInfo {
+export interface HttpSubDeviceInfo {
   sub_device_id: string;
   true_id: string;
   sub_device_type: string;

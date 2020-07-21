@@ -1,29 +1,30 @@
-const md5 = require('md5');
-const fs = require('fs/promises');
-const getRandomValues = require('get-random-values');
-const fetch = require('node-fetch');
-const FormData = require('form-data');
-const { serialize } = require('object-to-formdata');
+import md5 from 'md5';
+import { writeFile, readFile } from 'fs/promises';
+import getRandomValues from 'get-random-values';
+import fetch from 'node-fetch';
+import FormData from 'form-data';
+import { serialize } from 'object-to-formdata';
 
 /** @typedef {import('./interfaces').MerossCloudCreds} MerossCloudCreds */
 /** @typedef {import('./interfaces').HTTPDeviceInfo} HTTPDeviceInfo */
+/** @typedef {import('./interfaces').HttpSubDeviceInfo} HttpSubDeviceInfo */
 
-const {
+import {
   AuthenticatedPostException,
   ErrorCodes,
   TokenExpiredException,
   TooManyRequestsException,
   TooManyTokensException,
-} = require('./model');
+} from './model';
 
-exports.MerossHTTPClient = class MerossHttpClient {
+export class MerossHTTPClient {
   static SECRET = '23x17ahWarFH6w29';
   static MEROSS_URL = 'https://iot.meross.com';
-  static LOGIN_URL = `${MerossHttpClient.MEROSS_URL}/v1/Auth/Login`;
-  static LOG_URL = `${MerossHttpClient.MEROSS_URL}/v1/log/user`;
-  static DEV_LIST = `${MerossHttpClient.MEROSS_URL}/v1/Device/devList`;
-  static HUB_DUBDEV_LIST = `${MerossHttpClient.MEROSS_URL}/v1/Hub/getSubDevices`;
-  static LOGOUT_URL = `${MerossHttpClient.MEROSS_URL}/v1/Profile/logout`;
+  static LOGIN_URL = `${MerossHTTPClient.MEROSS_URL}/v1/Auth/Login`;
+  static LOG_URL = `${MerossHTTPClient.MEROSS_URL}/v1/log/user`;
+  static DEV_LIST = `${MerossHTTPClient.MEROSS_URL}/v1/Device/devList`;
+  static HUB_DUBDEV_LIST = `${MerossHTTPClient.MEROSS_URL}/v1/Hub/getSubDevices`;
+  static LOGOUT_URL = `${MerossHTTPClient.MEROSS_URL}/v1/Profile/logout`;
 
   static CRED_CACHE = './.cloud-creds.json';
 
@@ -32,35 +33,35 @@ exports.MerossHTTPClient = class MerossHttpClient {
   }
 
   /**
-   * Builds a MerossHttpClient using username/password combination.
+   * Builds a MerossHTTPClient using username/password combination.
    *
    * In any case, the login will generate a token, which might expire at any time.
    * @param {string} email Meross account email
    * @param {string} password Meross account password
-   * @returns {Promise<MerossHttpClient>}
+   * @returns {Promise<MerossHTTPClient>}
    */
   static async fromUserPassword(email, password) {
     console.debug(`Logging in with email: ${email}, password: XXXXX`);
     const cloudCreds = await this.login(email, password);
     console.debug('Login successful!');
-    await fs.writeFile(this.CRED_CACHE, JSON.stringify(cloudCreds), {
+    await writeFile(this.CRED_CACHE, JSON.stringify(cloudCreds), {
       encoding: 'utf8',
     });
-    return new MerossHttpClient(cloudCreds);
+    return new MerossHTTPClient(cloudCreds);
   }
 
   /**
-   * Builds a MerossHttpClient using the cached details.
+   * Builds a MerossHTTPClient using the cached details.
    *
    * This may fail if the token has expired.
-   * @returns {Promise<MerossHttpClient>}
+   * @returns {Promise<MerossHTTPClient>}
    */
   static async fromCache() {
     const cloudCreds = JSON.parse(
-      await fs.readFile(this.CRED_CACHE, { encoding: 'utf8' })
+      await readFile(this.CRED_CACHE, { encoding: 'utf8' })
     );
     console.debug('Restored session!');
-    return new MerossHttpClient(cloudCreds);
+    return new MerossHTTPClient(cloudCreds);
   }
 
   /**
@@ -77,7 +78,7 @@ exports.MerossHTTPClient = class MerossHttpClient {
    * @returns {Promise<MerossCloudCreds>}
    */
   static async login(email, password) {
-    const response_data = await MerossHttpClient.authenticatedPost(
+    const response_data = await MerossHTTPClient.authenticatedPost(
       this.LOGIN_URL,
       { email, password }
     );
@@ -114,13 +115,13 @@ exports.MerossHTTPClient = class MerossHttpClient {
    * @param {MerossCloudCreds} cloudCreds
    */
   static async authenticatedPost(url, data, cloudCreds = null) {
-    const nonce = MerossHttpClient.generateNonce(16);
+    const nonce = MerossHTTPClient.generateNonce(16);
     const timestamp = Date.now();
-    const loginParams = MerossHttpClient.encodeParams(data);
+    const loginParams = MerossHTTPClient.encodeParams(data);
 
     // Generate the md5-hash (called signature)
     const md5hash = md5(
-      [MerossHttpClient.SECRET, timestamp, nonce, loginParams].join('')
+      [MerossHTTPClient.SECRET, timestamp, nonce, loginParams].join('')
     );
 
     const headers = {
@@ -185,8 +186,8 @@ exports.MerossHTTPClient = class MerossHttpClient {
     console.debug(
       `Logging out. Invalidating cached credentials ${this.cloudCreds}`
     );
-    const result = await MerossHttpClient.authenticatedPost(
-      MerossHttpClient.LOGOUT_URL,
+    const result = await MerossHTTPClient.authenticatedPost(
+      MerossHTTPClient.LOGOUT_URL,
       {},
       this.cloudCreds
     );
@@ -196,14 +197,14 @@ exports.MerossHTTPClient = class MerossHttpClient {
   }
 
   /**
-   * Class method used to invalidate credentials without logging in with a full MerossHttpClient.
+   * Class method used to invalidate credentials without logging in with a full MerossHTTPClient.
    *
    * @param {MerossCloudCreds} cloudCreds `MerossCloudCredentials` as returned by `login()` or `from_user_password()`
    */
   static invalidateCredentials(cloudCreds) {
     console.debug(`Logging out. Invalidating cached credentials ${cloudCreds}`);
-    return MerossHttpClient.authenticatedPost(
-      MerossHttpClient.LOGOUT_URL,
+    return MerossHTTPClient.authenticatedPost(
+      MerossHTTPClient.LOGOUT_URL,
       {},
       cloudCreds
     );
@@ -224,8 +225,8 @@ exports.MerossHTTPClient = class MerossHttpClient {
       vendor: 'Meross',
       version: '6.0',
     };
-    return await MerossHttpClient.authenticatedPost(
-      MerossHttpClient.LOG_URL,
+    return await MerossHTTPClient.authenticatedPost(
+      MerossHTTPClient.LOG_URL,
       data
     );
   }
@@ -235,8 +236,8 @@ exports.MerossHTTPClient = class MerossHttpClient {
    * @returns {Promise<HTTPDeviceInfo[]>}
    */
   listDevices() {
-    return MerossHttpClient.authenticatedPost(
-      MerossHttpClient.DEV_LIST,
+    return MerossHTTPClient.authenticatedPost(
+      MerossHTTPClient.DEV_LIST,
       {},
       this.cloudCreds
     );
@@ -246,13 +247,13 @@ exports.MerossHTTPClient = class MerossHttpClient {
    *Returns the sub-devices associated to the given hub.
    *
    * @param {string} hubID Meross native UUID of the HUB
-   * @returns {Promise<HttpSubdeviceInfo[]>
+   * @returns {Promise<HttpSubDeviceInfo[]>}
    */
   listHubSubdevices(hubID) {
-    return MerossHttpClient.authenticatedPost(
-      MerossHttpClient.HUB_DUBDEV_LIST,
+    return MerossHTTPClient.authenticatedPost(
+      MerossHTTPClient.HUB_DUBDEV_LIST,
       { uuid: hubID },
       this.cloudCreds
     );
   }
-};
+}

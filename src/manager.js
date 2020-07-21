@@ -1,9 +1,9 @@
-const mqtt = require('mqtt');
-const md5 = require('md5');
+import { connect } from 'mqtt';
+import md5 from 'md5';
 
-const { MerossHTTPClient } = require('./api');
+import { MerossHTTPClient } from './api';
 
-const {
+import {
   generateMQTTPassword,
   generateClientAndAppID,
   buildClientResponseTopic,
@@ -12,20 +12,19 @@ const {
   deviceUUIDFromPushNotification,
   parsePushNotification,
   verifyMessageSignature,
-} = require('./mqtt.js');
-const { DeviceRegistry } = require('./device-registry');
-const { Namespace, CommandTimeout, OnlineStatus } = require('./model.js');
-const { BaseDevice } = require('./devices');
-const { buildMerossDevice } = require('./device-factory');
+} from './mqtt.js';
+import { DeviceRegistry } from './device-registry';
+import { Namespace, CommandTimeout, OnlineStatus } from './model.js';
+import { BaseDevice } from './devices';
+import { buildMerossDevice } from './device-factory';
 
-/** @typedef {import('./api').MerossHTTPClient} MerossHTTPClient */
 /** @typedef {import('./interfaces').HTTPDeviceInfo} HTTPDeviceInfo */
 /** @typedef {import('./mqtt').PushNotification} PushNotification */
 
 /**
  * This class implements a full-features Meross Client, which provides device discovery and registry.
  */
-exports.MerossManager = class {
+export class MerossManager {
   /**
    *
    * @param {MerossHTTPClient} httpClient
@@ -66,7 +65,7 @@ exports.MerossManager = class {
       this.cloudCreds.userID,
       this.cloudCreds.key
     );
-    this.mqttClient = mqtt.connect({
+    this.mqttClient = connect({
       host: this.domain,
       port: this.port,
       username: this.cloudCreds.userID,
@@ -114,20 +113,22 @@ exports.MerossManager = class {
 
   async onDisconnect(packet) {
     console.log('TODO: where is `rc`?', packet);
+    const rc = undefined;
+
     // NOTE! This method is called by the paho-mqtt thread, thus any invocation to the
     // asyncio platform must be scheduled via `this.loop.call_soon_threadsafe()` method.
 
     console.info(`Disconnection detected. Reason: ${rc}`);
 
     // If the client disconnected explicitly, the mqtt library handles thred stop autonomously
-    if (rc != mqtt.MQTT_ERR_SUCCESS) {
+    if (rc != false /* TODO: mqtt.MQTT_ERR_SUCCESS */) {
       // Otherwise, if the disconnection was not intentional, we probably had a connection drop.
       // In this case, we only stop the loop thread if auto_reconnect is not set. In fact, the loop will
       // handle reconnection autonomously on connection drops.
       if (!this.autoReconnect) {
         console.info('Stopping mqtt loop on connection drop');
         // TODO: convert this
-        client.loop_stop(true);
+        // client.loop_stop(true);
       } else
         console.warn(
           'Client has been disconnected, however auto_reconnect flag is set. ' +
@@ -136,7 +137,7 @@ exports.MerossManager = class {
     }
 
     // When a disconnection occurs, we need to set "unavailable" status.
-    this.notifyConnectionDrop();
+    // TODO: this.notifyConnectionDrop();
   }
 
   async onMessage(topic, rawMessage, packet) {
@@ -417,7 +418,7 @@ exports.MerossManager = class {
    * @param {string} method
    * @param {Namespace} namespace
    * @param {object} payload
-   * @returns {TODO:}
+   * @returns {any} TODO:
    */
   buildMQTTMessage(method, namespace, payload) {
     // Generate a random 16 byte string
@@ -435,7 +436,7 @@ exports.MerossManager = class {
         from: this.clientResponseTopic,
         messageId: messageId, // Example: "122e3e47835fefcd8aaf22d13ce21859"
         method: method, // Example: "GET",
-        namespace: namespace.value, // Example: "Appliance.System.All",
+        namespace: namespace, // Example: "Appliance.System.All",
         payloadVersion: 1,
         sign: signature, // Example: "b4236ac6fb399e70c3d61e98fcb68b74",
         timestamp: timestamp,
@@ -562,4 +563,4 @@ exports.MerossManager = class {
     this.deviceRegistry.enrollDevice(device);
     return device;
   }
-};
+}

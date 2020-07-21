@@ -20,7 +20,7 @@ exports.DeviceRegistry = class {
     // Dismiss the device
     // TODO: implement the dismiss() method to release device-held resources
     console.debug(`Disposing resources for ${dev.name} (${dev.uuid})`);
-    dev.dismiss?.();
+    // dev.dismiss();
     delete this.devicesByInternalID[deviceID];
     console.info(`Device ${dev.name} (${dev.uuid}) removed from registry`);
   }

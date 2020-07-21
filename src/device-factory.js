@@ -2,8 +2,8 @@
 /** @typedef {import("./manager").MerossManager} MerossManager */
 /** @typedef {(...args: any[]) => BaseDevice} DeviceFactory */
 
-const { HubDevice, BaseDevice } = require('./devices');
-const { Namespace } = require('./model');
+import { HubDevice, BaseDevice } from './devices';
+import { Namespace } from './model';
 
 /** Calculates the name of the dynamic-type for a specific class of devices */
 function calculateDeviceTypeName(deviceType, hardwareVersion, firmwareVersion) {
@@ -33,11 +33,7 @@ const lookupCachedType = (() => {
  * @param {MerossManager} manager
  * @returns {BaseDevice}
  */
-exports.buildMerossDevice = function (
-  HTTPDeviceInfo,
-  device_abilities,
-  manager
-) {
+export function buildMerossDevice(HTTPDeviceInfo, device_abilities, manager) {
   // The current implementation of this library is based on the usage of pluggable Mixin classes
   // on top of a couple of base implementations.
   console.debug(
@@ -77,15 +73,15 @@ exports.buildMerossDevice = function (
       baseClass = HubDevice;
     }
 
-    return exports.buildCachedType(device_abilities, baseClass);
+    return buildCachedType(device_abilities, baseClass);
   });
 
   const component = cachedType(HTTPDeviceInfo.uuid, manager, HTTPDeviceInfo);
   return component;
-};
+}
 
 /** @returns {DeviceFactory} */
-exports.buildCachedType = function (device_abilities, baseClass) {
+export function buildCachedType(device_abilities, baseClass) {
   // Build a specific type at runtime by mixing plugins on-demand
   const mixinClassSet = new Set();
 
@@ -115,7 +111,7 @@ exports.buildCachedType = function (device_abilities, baseClass) {
   };
   Object.setPrototypeOf(factory, Object.assign({}, ...mixinClasses));
   return factory;
-};
+}
 
 const _ABILITY_MATRIX = {
   // // Power plugs abilities
