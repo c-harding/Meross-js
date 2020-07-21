@@ -1,0 +1,22 @@
+{
+  "license": "MIT",
+  "name": "meross",
+  "scripts": {
+    "ts-node": "node --loader ts-node/esm --experimental-specifier-resolution=node --experimental-top-level-await"
+  },
+  "devDependencies": {
+    "@types/md5": "^2.2.0",
+    "@types/node": "^14.0.23",
+    "ts-node": "^8.10.2",
+    "typescript": "^3.9.7"
+  },
+  "dependencies": {
+    "form-data": "^3.0.0",
+    "get-random-values": "^1.2.0",
+    "md5": "^2.2.1",
+    "mqtt": "^4.1.0",
+    "node-fetch": "^2.6.0",
+    "object-to-formdata": "^4.0.1",
+    "uuid4": "^2.0.2"
+  }
+}
