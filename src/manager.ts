@@ -1,4 +1,4 @@
-import { connect } from 'mqtt';
+import mqtt from 'mqtt';
 import md5 from 'md5';
 
 import { MerossHTTPClient } from './api';
@@ -17,28 +17,37 @@ import { DeviceRegistry } from './device-registry';
 import { Namespace, CommandTimeout, OnlineStatus } from './model.js';
 import { BaseDevice } from './devices';
 import { buildMerossDevice } from './device-factory';
-
-/** @typedef {import('./interfaces').HTTPDeviceInfo} HTTPDeviceInfo */
-/** @typedef {import('./mqtt').PushNotification} PushNotification */
+import { PushNotification, HTTPDeviceInfo } from './interfaces';
 
 /**
  * This class implements a full-features Meross Client, which provides device discovery and registry.
  */
 export class MerossManager {
-  /**
-   *
-   * @param {MerossHTTPClient} httpClient
-   * @param {boolean} autoReconnect
-   * @param {string} domain
-   * @param {number} port
-   * @param {string} caCert
-   */
+  httpClient: MerossHTTPClient;
+  autoReconnect: boolean;
+  domain: string;
+  port: number;
+  caCert: string;
+  initialized: boolean;
+  appID: string;
+  clientID: string;
+  pendingMessages: {};
+  deviceRegistry: DeviceRegistry;
+  pushCallbacks: ((
+    notification: PushNotification,
+    targets: BaseDevice[]
+  ) => Promise<void>)[];
+  clientResponseTopic: string;
+  userTopic: string;
+  mqttClient: mqtt.MqttClient;
+  mqttConnectedAndSubscribed: boolean;
+
   constructor(
-    httpClient,
-    autoReconnect = true,
-    domain = 'iot.meross.com',
-    port = 2001,
-    caCert = null
+    httpClient: MerossHTTPClient,
+    autoReconnect: boolean = true,
+    domain: string = 'iot.meross.com',
+    port: number = 2001,
+    caCert: string = null
   ) {
     this.httpClient = httpClient;
     this.autoReconnect = autoReconnect;
@@ -65,7 +74,7 @@ export class MerossManager {
       this.cloudCreds.userID,
       this.cloudCreds.key
     );
-    this.mqttClient = connect({
+    this.mqttClient = mqtt.connect({
       host: this.domain,
       port: this.port,
       username: this.cloudCreds.userID,
@@ -257,7 +266,7 @@ export class MerossManager {
    *   as reported by the HTTP api or byt the relative hub (when dealing with subdevices).
    * @returns {BaseDevice[]} The list of devices that match the provided filters, if any.
    */
-  findDevices(filters = {}) {
+  findDevices(filters = {}): BaseDevice[] {
     return this.deviceRegistry.findAllBy(filters);
   }
 
@@ -267,7 +276,7 @@ export class MerossManager {
    *
    * @param {PushNotification} pushNotification
    */
-  async handleAndDispatchPushNotification(pushNotification) {
+  async handleAndDispatchPushNotification(pushNotification: PushNotification) {
     // Dispatching
     const handledDevice = this.dispatchPushNotification(pushNotification);
 
@@ -301,7 +310,9 @@ export class MerossManager {
    * @param {PushNotification} pushNotification
    * @returns {Promise<boolean>}
    */
-  async dispatchPushNotification(pushNotification) {
+  async dispatchPushNotification(
+    pushNotification: PushNotification
+  ): Promise<boolean> {
     // Lookup the originating device and deliver the push notification to that one.
     const target_devs = this.deviceRegistry.findAllBy({
       deviceUUIDs: pushNotification.originatingDeviceUUID,
@@ -338,7 +349,9 @@ export class MerossManager {
    * @param {PushNotification} pushNotification
    * @returns {Promise<boolean>}
    */
-  async handlePushNotificationPostDispatching(pushNotification) {
+  async handlePushNotificationPostDispatching(
+    pushNotification: PushNotification
+  ): Promise<boolean> {
     if (pushNotification.namespace == Namespace.CONTROL_UNBIND) {
       console.info(
         'Received an Unbind PushNotification. Releasing device resources...'
@@ -366,11 +379,11 @@ export class MerossManager {
    * @returns
    */
   async executeCommand(
-    destinationDeviceUUID,
-    method,
-    namespace,
-    payload = {},
-    timeout = 5.0
+    destinationDeviceUUID: string,
+    method: string,
+    namespace: Namespace,
+    payload: object = {},
+    timeout: number = 5.0
   ) {
     // Only proceed if we are connected to the remote endpoint
     if (!this.mqttClient.connected)
@@ -388,10 +401,15 @@ export class MerossManager {
       message,
       destinationDeviceUUID
     );
-    return response.payload;
+    return (response as any).payload;
   }
 
-  async asyncSendAndWaitAck(messageID, message, targetDeviceUUID, timeout) {
+  async asyncSendAndWaitAck(
+    messageID: string | number,
+    message: string | Buffer,
+    targetDeviceUUID: string,
+    timeout?: number
+  ) {
     // Create a future and perform the send/waiting to a task
     const promise = new Promise((resolve, reject) => {
       this.pendingMessages[messageID] = { resolve, reject };
@@ -420,7 +438,7 @@ export class MerossManager {
    * @param {object} payload
    * @returns {any} TODO:
    */
-  buildMQTTMessage(method, namespace, payload) {
+  buildMQTTMessage(method: string, namespace: Namespace, payload: object): any {
     // Generate a random 16 byte string
     const nonce = MerossHTTPClient.generateNonce(16);
 
@@ -458,7 +476,10 @@ export class MerossManager {
    *  reported by the HTTP api will be discovered.
    * @returns
    */
-  async deviceDiscovery(updateSubdeviceStatus = true, merossDeviceUUID = null) {
+  async deviceDiscovery(
+    updateSubdeviceStatus: boolean = true,
+    merossDeviceUUID: any = null
+  ) {
     console.info(
       `\n\n------- Triggering HTTP discovery, filter_device: ${merossDeviceUUID} -------`
     );
@@ -469,8 +490,8 @@ export class MerossManager {
       httpDevices = httpDevices.filter((d) => d.uuid == merossDeviceUUID);
 
     // Update state of local devices
-    /** @type {HTTPDeviceInfo[]} */ const newDevices = [];
-    /** @type {Map<HTTPDeviceInfo, BaseDevice>} */ const knownDevices = new Map();
+    const newDevices: HTTPDeviceInfo[] = [];
+    const knownDevices = new Map<HTTPDeviceInfo, BaseDevice>();
     for (const device of httpDevices) {
       // Check if the device is already present into the registry
       const foundDevice = this.deviceRegistry.lookupByUUID(device.uuid);
@@ -530,8 +551,10 @@ export class MerossManager {
    * @param {HTTPDeviceInfo} deviceInfo
    * @returns {Promise<BaseDevice?>}
    */
-  async enrollNewDevice(deviceInfo) {
-    let abilities;
+  async enrollNewDevice(
+    deviceInfo: HTTPDeviceInfo
+  ): Promise<BaseDevice | null> {
+    let abilities: any;
     try {
       // Only get abilities if the device is online.
       if (deviceInfo.online_status != OnlineStatus.ONLINE) {

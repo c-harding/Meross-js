@@ -1,4 +1,6 @@
 import { OnlineStatus, Namespace } from './model';
+import { MerossManager } from './manager';
+import { HTTPDeviceInfo, ChannelInfo, HTTPSubDeviceInfo } from './interfaces';
 
 /**@typedef {import('./manager').MerossManager} MerossManager */
 /**@typedef {import('./interfaces').HTTPDeviceInfo} HTTPDeviceInfo */
@@ -11,33 +13,31 @@ import { OnlineStatus, Namespace } from './model';
  * identifier, a library assigned internal identifier.
  */
 export class BaseDevice {
-  /**
-   * @param {string} deviceUUID
-   * @param {MerossManager} manager
-   * @param {HTTPDeviceInfo} config
-   */
+  public readonly manager: MerossManager;
+  public readonly uuid: string;
+  public channels: ChannelInfo[];
+  public name: string;
+  public type: string;
+  public firmwareVersion: string;
+  public hardwareVersion: string;
+  public online: OnlineStatus;
+  public abilities: {};
+
   constructor(
-    deviceUUID,
-    /** @type {MerossManager} */ manager,
-    {
-      dev_name = 'unknown',
-      device_type = 'unknown',
-      fmware_version = 'unknown',
-      hdware_version = 'unknown',
-      online_status = OnlineStatus.UNKNOWN,
-      channels = [],
-    }
+    deviceUUID: string,
+    manager: MerossManager,
+    config: HTTPDeviceInfo
   ) {
     this.manager = manager;
     this.uuid = deviceUUID;
-    this.channels = BaseDevice.parseChannels(channels);
+    this.channels = BaseDevice.parseChannels(config.channels);
 
     // Information about device
-    this.name = dev_name;
-    this.type = device_type;
-    this.firmwareVersion = fmware_version;
-    this.hardwareVersion = hdware_version;
-    this.online = online_status;
+    this.name = config.dev_name || 'unknown';
+    this.type = config.device_type || 'unknown';
+    this.firmwareVersion = config.fmware_version || 'unknown';
+    this.hardwareVersion = config.hdware_version || 'unknown';
+    this.online = config.online_status || OnlineStatus.UNKNOWN;
 
     this.abilities = {};
   }
@@ -53,7 +53,7 @@ export class BaseDevice {
     return this.online;
   }
 
-  async updateFromHTTPState(/** @type {HTTPDeviceInfo} */ deviceInfo) {
+  async updateFromHTTPState(deviceInfo: HTTPDeviceInfo) {
     // Careful with online  status: not all the devices might expose an online mixin.
     if (deviceInfo.uuid != this.uuid)
       throw new Error(
@@ -62,15 +62,15 @@ export class BaseDevice {
     this.name = deviceInfo.dev_name;
     this.channels = BaseDevice.parseChannels(deviceInfo.channels);
     this.type = deviceInfo.device_type;
-    this.fwversion = deviceInfo.fmware_version;
-    this.hwversion = deviceInfo.hdware_version;
+    this.firmwareVersion = deviceInfo.fmware_version;
+    this.hardwareVersion = deviceInfo.hdware_version;
     this.online = deviceInfo.online_status;
 
     // TODO: fire some sort of events to let users see changed data? -@albertogeniola
     return this;
   }
 
-  async handlePushNotification(/** @type {Namespace} */ namespace, _data) {
+  async handlePushNotification(namespace: Namespace, _data?: unknown) {
     // By design, the base class does not implement any push notification.
     console.debug(
       `MerossBaseDevice ${this.name} handling notification ${namespace}`
@@ -78,7 +78,7 @@ export class BaseDevice {
     return false;
   }
 
-  handleUpdate(/** @type {Namespace} */ namespace, _data) {
+  handleUpdate(namespace: Namespace, _data?: void) {
     // By design, the base class does not implement any update logic
     // TODO: we might update name/uuid/other stuff in here...
     return false;
@@ -104,14 +104,12 @@ export class BaseDevice {
         `Contact the developer. Current object: ${this}`
     );
   }
-
-  /**
-   * @param {string} method
-   * @param {Namespace} namespace
-   * @param {object} payload
-   * @param {number} [timeout=5]
-   */
-  async executeCommand(method, namespace, payload, timeout = 5) {
+  async executeCommand(
+    method: string,
+    namespace: Namespace,
+    payload: object,
+    timeout: number = 5
+  ) {
     return await this.manager.executeCommand(
       this.uuid,
       method,
@@ -125,13 +123,9 @@ export class BaseDevice {
     return `${this.name} (${this.type}, HW ${this.hardwareVersion}, FW ${this.hardwareVersion})`;
   }
 
-  /**
-   *
-   * @static
-   * @param {{name:string,type:string}[]} channelData
-   * @returns {ChannelInfo[]}
-   */
-  static parseChannels(channelData = []) {
+  static parseChannels(
+    channelData: { name: string; type: string }[] = []
+  ): ChannelInfo[] {
     return channelData.map(({ name, type }, index) => ({
       index,
       name,
@@ -140,12 +134,7 @@ export class BaseDevice {
     }));
   }
 
-  /**
-   * Looks up a channel by channel id or channel name
-   *
-   * @param {string} name
-   */
-  lookupChannel(name) {
+  lookupChannel(name: string): ChannelInfo {
     const res = this.channels.filter((c) => c.name == name);
     if (res.length == 1) return res[0];
     throw new Error(`Could not find channel by name = ${name}`);
@@ -153,12 +142,17 @@ export class BaseDevice {
 }
 
 export class HubDevice extends BaseDevice {
+  subDevices: { [id: string]: GenericSubDevice };
+
   // TODO: provide meaningful comment here describing what this class does
   //  Discovery?? Bind/unbind?? Online?? -@albertogeniola
-  constructor(deviceUUID, manager, config) {
+  constructor(
+    deviceUUID: string,
+    manager: MerossManager,
+    config: HTTPDeviceInfo
+  ) {
     super(deviceUUID, manager, config);
 
-    /** @type {{ [id: string]: GenericSubDevice }} */
     this.subDevices = {};
   }
 
@@ -166,51 +160,72 @@ export class HubDevice extends BaseDevice {
     return Object.values(this.subDevices);
   }
 
-  registerSubDevice(/** @type {GenericSubDevice} */ subDevice) {
+  registerSubDevice(
+    /** @type {GenericSubDevice} */ subDevice: GenericSubDevice
+  ) {
     // If the device is already registered, skip it
-    if (subDevice.subDeviceID in this.subDevices) {
+    if (subDevice.id in this.subDevices) {
       console.error(
-        `SubDevice ${subDevice.subDeviceID} has been already registered to this HUB (${this.name})`
+        `SubDevice ${subDevice.id} has been already registered to this HUB (${this.name})`
       );
       return;
     }
 
-    this.subDevices[subDevice.subDeviceID] = subDevice;
+    this.subDevices[subDevice.id] = subDevice;
   }
 }
 
 export class GenericSubDevice extends BaseDevice {
+  subDeviceID: { [id: string]: GenericSubDevice };
+  UPDATE_ALL_NAMESPACE: any;
+  type: string;
+  name: string;
+  onoff;
+  mode;
+  temperature;
+  hub: HubDevice;
+  id: string;
+
   /**
    * @param {string} hubDeviceUUID
    * @param {string} subDeviceID
    * @param {MerossManager} manager
    * @param {object} config
    */
-  constructor(hubDeviceUUID, subDeviceID, manager, config) {
+  constructor(
+    hubDeviceUUID: string,
+    id: string,
+    manager: MerossManager,
+    config: HTTPSubDeviceInfo
+  ) {
     super(hubDeviceUUID, manager, config);
 
-    this._UPDATE_ALL_NAMESPACE = null;
+    this.UPDATE_ALL_NAMESPACE = null;
 
-    this.subDeviceID = subDeviceID;
-    this._type = config.subDeviceType;
-    this._name = config.subDeviceName;
-    this._onoff = null;
-    this._mode = null;
-    this._temperature = null;
+    this.id = id;
+    this.type = config.sub_device_type;
+    this.name = config.sub_device_name;
+    this.onoff = null;
+    this.mode = null;
+    this.temperature = null;
     const hub = manager.findDevices({ deviceUUIDs: hubDeviceUUID });
     if (hub.length < 1) throw new Error('Specified hub device is not present');
 
-    /** @type {HubDevice} */
-    this.hub = /** @type {HubDevice} */ (hub[0]);
+    this.hub = hub[0] as HubDevice;
   }
 
-  async executeCommand(_method, _namespace, _payload, _timeout = 5) {
+  async executeCommand(
+    _method: string,
+    _namespace: Namespace,
+    _payload: object,
+    _timeout = 5
+  ): Promise<unknown> {
     // Every command should be invoked via HUB?
     throw new Error('SubDevices should rely on Hub in order to send commands.');
   }
 
   async update() {
-    if (!this._UPDATE_ALL_NAMESPACE) {
+    if (!this.UPDATE_ALL_NAMESPACE) {
       console.error(
         "GenericSubDevice does not implement any GET_ALL namespace. Update won't be performed."
       );
@@ -223,7 +238,7 @@ export class GenericSubDevice extends BaseDevice {
     // we need to query all sub-devices.
     const result = await this.hub.executeCommand(
       'GET',
-      this._UPDATE_ALL_NAMESPACE,
+      this.UPDATE_ALL_NAMESPACE,
       { all: [{ id: this.subDeviceID }] }
     );
     const subDevicesStates = result.all;
@@ -232,7 +247,7 @@ export class GenericSubDevice extends BaseDevice {
     );
     if (subDevicesState)
       await this.handlePushNotification(
-        this._UPDATE_ALL_NAMESPACE,
+        this.UPDATE_ALL_NAMESPACE,
         subDevicesState
       );
   }
@@ -241,7 +256,10 @@ export class GenericSubDevice extends BaseDevice {
    * Polls the HUB/DEVICE to get its current battery status.
    * @returns {Promise<{ batteryCharge: number, sampleTimestamp: number }>}
    */
-  async getBatteryLife() {
+  async getBatteryLife(): Promise<{
+    batteryCharge: number;
+    sampleTimestamp: number;
+  }> {
     const data = await this.hub.executeCommand('GET', Namespace.HUB_BATTERY, {
       battery: [{ id: this.subDeviceID }],
     });

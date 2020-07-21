@@ -7,6 +7,7 @@
     "checkJs": true,
     "outDir": "dist",
     "rootDir": "src",
-    "moduleResolution": "node"
+    "moduleResolution": "node",
+    "declaration": true
   }
 }

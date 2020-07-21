@@ -1,9 +1,9 @@
-/** @typedef {import("./interfaces").HTTPDeviceInfo} HTTPDeviceInfo */
-/** @typedef {import("./manager").MerossManager} MerossManager */
-/** @typedef {(...args: any[]) => BaseDevice} DeviceFactory */
+type DeviceFactory = (...args: any[]) => BaseDevice;
 
 import { HubDevice, BaseDevice } from './devices';
 import { Namespace } from './model';
+import { HTTPDeviceInfo } from './interfaces';
+import { MerossManager } from './manager';
 
 /** Calculates the name of the dynamic-type for a specific class of devices */
 function calculateDeviceTypeName(deviceType, hardwareVersion, firmwareVersion) {
@@ -14,31 +14,32 @@ function calculateDeviceTypeName(deviceType, hardwareVersion, firmwareVersion) {
  * Returns the cached dynamic type for the specific device, if any was already built for that one.
  */
 const lookupCachedType = (() => {
-  /** @type {{[deviceTypeName: string]: DeviceFactory}} */
-  const deviceFactories = {};
+  const deviceFactories: { [deviceTypeName: string]: DeviceFactory } = {};
 
-  /**
-   * @param {string} key
-   * @param {() => DeviceFactory} calculate
-   * @returns {DeviceFactory}
-   */
-  const factory = (key, calculate) =>
+  const factory = (
+    key: string,
+    calculate: () => DeviceFactory
+  ): DeviceFactory =>
     deviceFactories[key] || (deviceFactories[key] = calculate());
   return factory;
 })();
 
 /**
  * @param {HTTPDeviceInfo} HTTPDeviceInfo
- * @param {object} device_abilities
+ * @param {any} device_abilities
  * @param {MerossManager} manager
  * @returns {BaseDevice}
  */
-export function buildMerossDevice(HTTPDeviceInfo, device_abilities, manager) {
+export function buildMerossDevice(
+  HTTPDeviceInfo: HTTPDeviceInfo,
+  deviceAbilities: any,
+  manager: MerossManager
+): BaseDevice {
   // The current implementation of this library is based on the usage of pluggable Mixin classes
   // on top of a couple of base implementations.
   console.debug(
     `Building managed device for ${HTTPDeviceInfo.dev_name} (${HTTPDeviceInfo.uuid}). ` +
-      `Reported abilities: ${device_abilities}`
+      `Reported abilities: ${deviceAbilities}`
   );
 
   const deviceTypeName = calculateDeviceTypeName(
@@ -64,7 +65,7 @@ export function buildMerossDevice(HTTPDeviceInfo, device_abilities, manager) {
     // of 'Appliance.Digest.Hub' namespace within the exposed abilities.
     const isHub = Namespace.SYSTEM_DIGEST_HUB;
     let baseClass = BaseDevice;
-    if (device_abilities.includes(isHub)) {
+    if (deviceAbilities.includes(isHub)) {
       console.warn(
         `Device ${HTTPDeviceInfo.dev_name} (${HTTPDeviceInfo.device_type}, ` +
           `uuid ${HTTPDeviceInfo.uuid}) reported ability ${isHub}. ` +
@@ -73,7 +74,7 @@ export function buildMerossDevice(HTTPDeviceInfo, device_abilities, manager) {
       baseClass = HubDevice;
     }
 
-    return buildCachedType(device_abilities, baseClass);
+    return buildCachedType(deviceAbilities, baseClass);
   });
 
   const component = cachedType(HTTPDeviceInfo.uuid, manager, HTTPDeviceInfo);
@@ -81,19 +82,19 @@ export function buildMerossDevice(HTTPDeviceInfo, device_abilities, manager) {
 }
 
 /** @returns {DeviceFactory} */
-export function buildCachedType(device_abilities, baseClass) {
+export function buildCachedType(deviceAbilities, baseClass): DeviceFactory {
   // Build a specific type at runtime by mixing plugins on-demand
   const mixinClassSet = new Set();
 
   // Add plugins by abilities
-  for (const [key, val] of Object.entries(device_abilities)) {
+  for (const [key, val] of Object.entries(deviceAbilities)) {
     // When a device exposes the same ability like Toggle and ToggleX, prefer the X version by filtering
     // out the non-X version.
     let clsx = null;
-    let cls = _ABILITY_MATRIX.get(key);
+    let cls = _ABILITY_MATRIX[key];
 
     // Check if for this ability the device exposes the X version
-    const xVersionAbilityKey = device_abilities[`${key}X`];
+    const xVersionAbilityKey = deviceAbilities[`${key}X`];
     if (xVersionAbilityKey) clsx = _ABILITY_MATRIX[xVersionAbilityKey];
 
     // Now, if we have both the clsx and the cls, prefer the clsx, otherwise go for the cls
@@ -106,7 +107,7 @@ export function buildCachedType(device_abilities, baseClass) {
   const mixinClasses = [...mixinClassSet, baseClass];
   const factory = function (...args) {
     return Object.assign(new baseClass(...args), {
-      abilitiesSpec: device_abilities,
+      abilitiesSpec: deviceAbilities,
     });
   };
   Object.setPrototypeOf(factory, Object.assign({}, ...mixinClasses));

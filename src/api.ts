@@ -5,10 +5,6 @@ import fetch from 'node-fetch';
 import FormData from 'form-data';
 import { serialize } from 'object-to-formdata';
 
-/** @typedef {import('./interfaces').MerossCloudCreds} MerossCloudCreds */
-/** @typedef {import('./interfaces').HTTPDeviceInfo} HTTPDeviceInfo */
-/** @typedef {import('./interfaces').HttpSubDeviceInfo} HttpSubDeviceInfo */
-
 import {
   AuthenticatedPostException,
   ErrorCodes,
@@ -16,6 +12,11 @@ import {
   TooManyRequestsException,
   TooManyTokensException,
 } from './model';
+import {
+  MerossCloudCreds,
+  HTTPDeviceInfo,
+  HTTPSubDeviceInfo,
+} from './interfaces';
 
 export class MerossHTTPClient {
   static SECRET = '23x17ahWarFH6w29';
@@ -27,8 +28,9 @@ export class MerossHTTPClient {
   static LOGOUT_URL = `${MerossHTTPClient.MEROSS_URL}/v1/Profile/logout`;
 
   static CRED_CACHE = './.cloud-creds.json';
+  cloudCreds: MerossCloudCreds;
 
-  constructor(/** @type {MerossCloudCreds} */ cloudCreds) {
+  constructor(cloudCreds: MerossCloudCreds) {
     this.cloudCreds = cloudCreds;
   }
 
@@ -36,11 +38,13 @@ export class MerossHTTPClient {
    * Builds a MerossHTTPClient using username/password combination.
    *
    * In any case, the login will generate a token, which might expire at any time.
-   * @param {string} email Meross account email
-   * @param {string} password Meross account password
-   * @returns {Promise<MerossHTTPClient>}
+   * @param email Meross account email
+   * @param password Meross account password
    */
-  static async fromUserPassword(email, password) {
+  static async fromUserPassword(
+    email: string,
+    password: string
+  ): Promise<MerossHTTPClient> {
     console.debug(`Logging in with email: ${email}, password: XXXXX`);
     const cloudCreds = await this.login(email, password);
     console.debug('Login successful!');
@@ -54,9 +58,8 @@ export class MerossHTTPClient {
    * Builds a MerossHTTPClient using the cached details.
    *
    * This may fail if the token has expired.
-   * @returns {Promise<MerossHTTPClient>}
    */
-  static async fromCache() {
+  static async fromCache(): Promise<MerossHTTPClient> {
     const cloudCreds = JSON.parse(
       await readFile(this.CRED_CACHE, { encoding: 'utf8' })
     );
@@ -75,15 +78,16 @@ export class MerossHTTPClient {
    *
    * @param {string} email Meross account email
    * @param {string} password Meross account password
-   * @returns {Promise<MerossCloudCreds>}
    */
-  static async login(email, password) {
+  static async login(
+    email: string,
+    password: string
+  ): Promise<MerossCloudCreds> {
     const response_data = await MerossHTTPClient.authenticatedPost(
       this.LOGIN_URL,
       { email, password }
     );
-    /** @type {MerossCloudCreds} */
-    const creds = {
+    const creds: MerossCloudCreds = {
       token: response_data['token'],
       key: response_data['key'],
       userID: response_data['userid'],
@@ -108,13 +112,11 @@ export class MerossHTTPClient {
     ).toString('base64');
   }
 
-  /**
-   *
-   * @param {string} url
-   * @param {object} data
-   * @param {MerossCloudCreds} cloudCreds
-   */
-  static async authenticatedPost(url, data, cloudCreds = null) {
+  static async authenticatedPost(
+    url: string,
+    data: object,
+    cloudCreds: MerossCloudCreds = null
+  ) {
     const nonce = MerossHTTPClient.generateNonce(16);
     const timestamp = Date.now();
     const loginParams = MerossHTTPClient.encodeParams(data);
@@ -147,7 +149,7 @@ export class MerossHTTPClient {
     );
     const response = await fetch(url, {
       method: 'POST',
-      body: serialize(payload, {}, /** @type {any} */ (new FormData())),
+      body: serialize(payload, {}, new FormData() as any),
       headers,
     });
     console.debug(`Response Status Code: ${response.status}`);
@@ -191,7 +193,7 @@ export class MerossHTTPClient {
       {},
       this.cloudCreds
     );
-    this._cloudCreds = null;
+    this.cloudCreds = null;
     console.info('Logout succeeded.');
     return result;
   }
@@ -201,7 +203,7 @@ export class MerossHTTPClient {
    *
    * @param {MerossCloudCreds} cloudCreds `MerossCloudCredentials` as returned by `login()` or `from_user_password()`
    */
-  static invalidateCredentials(cloudCreds) {
+  static invalidateCredentials(cloudCreds: MerossCloudCreds) {
     console.debug(`Logging out. Invalidating cached credentials ${cloudCreds}`);
     return MerossHTTPClient.authenticatedPost(
       MerossHTTPClient.LOGOUT_URL,
@@ -232,10 +234,8 @@ export class MerossHTTPClient {
   }
   /**
    * Asks to the HTTP api to list the Meross device belonging to the given user account.
-   *
-   * @returns {Promise<HTTPDeviceInfo[]>}
    */
-  listDevices() {
+  listDevices(): Promise<HTTPDeviceInfo[]> {
     return MerossHTTPClient.authenticatedPost(
       MerossHTTPClient.DEV_LIST,
       {},
@@ -249,7 +249,7 @@ export class MerossHTTPClient {
    * @param {string} hubID Meross native UUID of the HUB
    * @returns {Promise<HttpSubDeviceInfo[]>}
    */
-  listHubSubdevices(hubID) {
+  listHubSubdevices(hubID: string): Promise<HTTPSubDeviceInfo[]> {
     return MerossHTTPClient.authenticatedPost(
       MerossHTTPClient.HUB_DUBDEV_LIST,
       { uuid: hubID },

@@ -12,19 +12,19 @@ export function generateClientAndAppID() {
   const clientID = `app:${appID}`;
   return [appID, clientID];
 }
-export function generateMQTTPassword(user_id, key) {
-  return md5(`${user_id}${key}`);
+export function generateMQTTPassword(userID: string, key: string) {
+  return md5(`${userID}${key}`);
 }
-export function buildClientResponseTopic(userID, appID) {
+export function buildClientResponseTopic(userID: string, appID: string) {
   return `/app/${userID}-${appID}/subscribe`;
 }
-export function buildClientUserTopic(userID) {
-  return '/app/${user_id}/subscribe';
+export function buildClientUserTopic(userID: string) {
+  return `/app/${userID}/subscribe`;
 }
-export function buildDeviceRequestTopic(client_uuid) {
-  return `/appliance/${client_uuid}/subscribe`;
+export function buildDeviceRequestTopic(clientUUID: string) {
+  return `/appliance/${clientUUID}/subscribe`;
 }
-export function deviceUUIDFromPushNotification(fromTopic) {
+export function deviceUUIDFromPushNotification(fromTopic: string) {
   return fromTopic.split('/')[2];
 }
 export function parseTimeInfo({ timezone, timestamp, time_rule: timeRule }) {
@@ -50,9 +50,9 @@ export function parseHardwareInfo({
   };
 }
 export function parsePushNotification(
-  namespace,
-  payload,
-  originatingDeviceUUID
+  namespace: any,
+  payload: { bind: { time: any; hardware: any } },
+  originatingDeviceUUID: any
 ) {
   const namespaceSpecificFields =
     namespace == payload.bind
@@ -69,7 +69,10 @@ export function parsePushNotification(
     ...namespaceSpecificFields,
   };
 }
-export function verifyMessageSignature(header, key) {
-  const hash = md5([header['messageId'], key, header['timestamp']].join(''));
+export function verifyMessageSignature(
+  header: { [x: string]: string },
+  key: string
+) {
+  const hash = md5([header.messageId, key, header.timestamp].join(''));
   return hash == header['sign'];
 }

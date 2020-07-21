@@ -27,7 +27,7 @@ export interface HTTPDeviceInfo {
   reserved_domain: string;
 }
 
-export interface HttpSubDeviceInfo {
+export interface HTTPSubDeviceInfo extends HTTPDeviceInfo {
   sub_device_id: string;
   true_id: string;
   sub_device_type: string;
