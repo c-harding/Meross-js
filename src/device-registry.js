@@ -1,6 +1,6 @@
-const { BaseDevice } = require('./devices');
+import { BaseDevice } from './devices';
 
-exports.DeviceRegistry = class {
+export class DeviceRegistry {
   constructor() {
     /** @type {{[id:string]: BaseDevice}} */
 
@@ -70,4 +70,4 @@ exports.DeviceRegistry = class {
       ].every(Boolean)
     );
   }
-};
+}
