@@ -118,36 +118,36 @@ exports.buildCachedType = function (device_abilities, baseClass) {
 };
 
 const _ABILITY_MATRIX = {
-  // Power plugs abilities
-  [Namespace.CONTROL_TOGGLEX]: ToggleXMixin,
-  [Namespace.CONTROL_TOGGLE]: ToggleMixin,
-  [Namespace.CONTROL_CONSUMPTIONX]: ConsumptionXMixin,
-  [Namespace.CONTROL_ELECTRICITY]: ElectricityMixin,
-
-  // Light abilities
-  [Namespace.CONTROL_LIGHT]: LightMixin,
-
-  // Garage opener
-  [Namespace.GARAGE_DOOR_STATE]: GarageOpenerMixin,
-
-  // Spray opener
-  [Namespace.CONTROL_SPRAY]: SprayMixin,
-
-  // System
-  [Namespace.SYSTEM_ALL]: SystemAllMixin,
-  [Namespace.SYSTEM_ONLINE]: SystemOnlineMixin,
-
-  // Hub
-  [Namespace.HUB_ONLINE]: HubMixn,
-  [Namespace.HUB_TOGGLEX]: HubMixn,
-
-  [Namespace.HUB_SENSOR_ALL]: HubMs100Mixin,
-  [Namespace.HUB_SENSOR_ALERT]: HubMs100Mixin,
-  [Namespace.HUB_SENSOR_TEMPHUM]: HubMs100Mixin,
-
-  [Namespace.HUB_MTS100_ALL]: HubMts100Mixin,
-  [Namespace.HUB_MTS100_MODE]: HubMts100Mixin,
-  [Namespace.HUB_MTS100_TEMPERATURE]: HubMts100Mixin,
-
-  // TODO: BIND, UNBIND, ONLINE, WIFI, ETC! -@albertogeniola
+  // // Power plugs abilities
+  // [Namespace.CONTROL_TOGGLEX]: ToggleXMixin,
+  // [Namespace.CONTROL_TOGGLE]: ToggleMixin,
+  // [Namespace.CONTROL_CONSUMPTIONX]: ConsumptionXMixin,
+  // [Namespace.CONTROL_ELECTRICITY]: ElectricityMixin,
+  //
+  // // Light abilities
+  // [Namespace.CONTROL_LIGHT]: LightMixin,
+  //
+  // // Garage opener
+  // [Namespace.GARAGE_DOOR_STATE]: GarageOpenerMixin,
+  //
+  // // Spray opener
+  // [Namespace.CONTROL_SPRAY]: SprayMixin,
+  //
+  // // System
+  // [Namespace.SYSTEM_ALL]: SystemAllMixin,
+  // [Namespace.SYSTEM_ONLINE]: SystemOnlineMixin,
+  //
+  // // Hub
+  // [Namespace.HUB_ONLINE]: HubMixn,
+  // [Namespace.HUB_TOGGLEX]: HubMixn,
+  //
+  // [Namespace.HUB_SENSOR_ALL]: HubMs100Mixin,
+  // [Namespace.HUB_SENSOR_ALERT]: HubMs100Mixin,
+  // [Namespace.HUB_SENSOR_TEMPHUM]: HubMs100Mixin,
+  //
+  // [Namespace.HUB_MTS100_ALL]: HubMts100Mixin,
+  // [Namespace.HUB_MTS100_MODE]: HubMts100Mixin,
+  // [Namespace.HUB_MTS100_TEMPERATURE]: HubMts100Mixin,
+  //
+  // // TODO: BIND, UNBIND, ONLINE, WIFI, ETC! -@albertogeniola
 };
